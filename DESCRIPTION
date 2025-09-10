@@ -1,0 +1,35 @@
+Package: scGeoGet
+Type: Package
+Title: Single Cell GEO Data Retrieval and Seurat Object Creation
+Version: 0.1.0
+Author: Your Name
+Maintainer: Your Name <your.email@example.com>
+Description: Downloads single cell RNA-seq datasets from GEO (Gene Expression 
+    Omnibus) and creates Seurat objects. Handles various data formats and edge 
+    cases common in single cell data submissions.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.0.0)
+Imports:
+    GEOquery,
+    Seurat,
+    SeuratObject,
+    Matrix,
+    dplyr,
+    stringr,
+    utils,
+    tools
+Suggests:
+    rhdf5,
+    hdf5r,
+    R.utils,
+    DropletUtils,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+RoxygenNote: 7.2.0
+VignetteBuilder: knitr
+URL: https://github.com/yourusername/scGeoGet
+BugReports: https://github.com/yourusername/scGeoGet/issues

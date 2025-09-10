@@ -1,0 +1,254 @@
+# scGeoGet: Single Cell GEO Data Retrieval and Seurat Object Creation Plan
+
+## Project Overview
+Develop an R program to automatically download single cell RNA-seq datasets from GEO (Gene Expression Omnibus) and create Seurat objects. The software must handle various data formats and edge cases common in single cell data submissions.
+
+## Key Technical Challenges
+
+### 1. GEO Data Access Limitations
+- **Critical Issue**: GEOquery's getGEO() function only returns expression data for arrays, NOT for NGS data
+- **Solution**: Must use getGEOSuppFiles() to download supplementary files manually
+- **Implementation**: Parse GEO webpage/metadata to identify relevant supplementary files
+
+### 2. Data Format Variations
+Researchers upload single cell data in multiple formats:
+- **10X Format**: matrix.mtx.gz, barcodes.tsv.gz, features.tsv.gz (most common)
+- **HDF5 Format**: .h5 files (single file containing matrix + metadata)
+- **Raw Text**: .txt, .csv, .tsv files (less common but present)
+- **RDS Objects**: Pre-processed R objects
+- **Custom Formats**: Lab-specific variations
+
+### 3. Platform-Specific Requirements
+- **10X Genomics**: Different file requirements based on platform version
+  - CellRanger < 3.0: genes.tsv
+  - CellRanger >= 3.0: features.tsv.gz
+- **Multi-omics Studies**: Require feature_reference.csv files
+- **Spatial Data**: Different file structure requirements
+
+### 4. Metadata Inconsistencies
+- **Missing Metadata**: Many submissions lack cell-type annotations
+- **Inconsistent Naming**: Variable file naming conventions
+- **Quality Issues**: Submissions may lack proper validation
+
+## Technical Implementation Strategy
+
+### Phase 1: Data Discovery and Download
+1. **GEO Accession Processing**
+   - Parse GSE accession to identify single cell studies
+   - Use getGEOSuppFiles() to list available files
+   - Implement file type detection algorithms
+
+2. **Smart File Detection**
+   - Pattern matching for 10X files (matrix.mtx, barcodes, features/genes)
+   - HDF5 file identification (.h5, .hdf5)
+   - Compressed file handling (.gz, .bz2)
+   - Metadata file detection
+
+3. **Robust Download System**
+   - Retry mechanisms for failed downloads
+   - File integrity checks
+   - Automatic decompression
+
+### Phase 2: Data Format Handling
+1. **10X Format Processing**
+   - Use Seurat's Read10X() function
+   - Handle both compressed and uncompressed files
+   - Detect CellRanger version differences
+
+2. **HDF5 Processing**
+   - Use Read10X_h5() for 10X HDF5 files
+   - Use rhdf5/hdf5r for custom HDF5 structures
+   - Extract matrix and metadata components
+
+3. **Alternative Format Support**
+   - readMM() for Matrix Market format
+   - Custom parsers for text-based formats
+   - RDS object loading
+
+### Phase 3: Data Validation and Quality Control
+1. **Data Integrity Checks**
+   - Verify matrix dimensions consistency
+   - Check for proper gene/cell identifiers
+   - Validate count data (non-negative integers)
+
+2. **Metadata Validation**
+   - Cross-reference cell barcodes
+   - Validate gene identifiers
+   - Check for missing data patterns
+
+3. **Quality Metrics**
+   - Cell count validation
+   - Gene detection statistics
+   - Data sparsity assessment
+
+### Phase 4: Seurat Object Creation
+1. **Preprocessing Options**
+   - Configurable filtering (min.cells, min.features)
+   - Gene symbol conversion if needed
+   - Duplicate handling
+
+2. **Metadata Integration**
+   - Incorporate available sample metadata
+   - Add GEO accession information
+   - Include processing timestamps
+
+3. **Standardization**
+   - Consistent naming conventions
+   - Standardized metadata fields
+   - Version tracking
+
+## Required R Packages
+- **Core**: GEOquery, Seurat, Matrix
+- **File I/O**: rhdf5, hdf5r, R.utils (compression)
+- **Data Processing**: dplyr, stringr
+- **Optional**: DropletUtils (alternative 10X reader)
+
+## Edge Cases to Handle
+
+### File Structure Variations
+- Mixed compression (some files .gz, others not)
+- Non-standard file names
+- Multiple samples in single submission
+- Split matrix files (multiple .mtx files)
+
+### Platform-Specific Issues
+- 10X multi-omics data with feature reference files
+- Spatial transcriptomics data structures
+- Custom platforms with unique formats
+
+### Data Quality Issues
+- Empty or corrupted files
+- Mismatched dimensions between files
+- Non-standard gene identifiers
+- Mixed species data
+
+### Submission Inconsistencies
+- Missing required files
+- Incorrect file associations
+- Metadata-data mismatches
+- Version compatibility issues
+
+## Function Architecture
+
+### Main Functions
+1. `scGeoGet(accession, output_dir = NULL, ...)`
+   - Main interface function
+   - Returns Seurat object or list of objects
+
+2. `detect_data_format(file_list)`
+   - Identifies data format from file patterns
+   - Returns format type and file mappings
+
+3. `download_geo_data(accession, target_dir)`
+   - Downloads and organizes GEO supplementary files
+   - Handles decompression and validation
+
+4. `create_seurat_from_format(format, files, metadata = NULL)`
+   - Format-specific Seurat object creation
+   - Handles different input types
+
+### Utility Functions
+- `validate_geo_accession(accession)`
+- `parse_geo_metadata(accession)`
+- `check_file_integrity(files)`
+- `standardize_gene_names(genes)`
+
+## Error Handling Strategy
+- Informative error messages for common failures
+- Fallback strategies for format detection
+- Partial success handling (some samples fail)
+- User guidance for manual intervention cases
+
+## Testing Strategy
+- Test suite with known GEO accessions
+- Coverage of different platforms and formats
+- Edge case validation
+- Performance benchmarking
+
+## Future Enhancements
+- Support for additional single cell modalities (ATAC, spatial)
+- Integration with other repositories (ArrayExpress, SRA)
+- Caching mechanisms for repeated accessions
+- Parallel processing for multiple samples
+- GUI interface option
+
+## DEVELOPMENT APPROACH (FOR CODING ASSISTANTS)
+
+### Project Feasibility Assessment
+✅ **FEASIBLE** - This project is realistic and valuable, but requires careful scope management.
+
+### Expected Success Rates
+- **Initial MVP**: ~80-85% of standard 10X datasets
+- **Mature version**: ~85-95% of all single cell GEO datasets
+- **Never 100%**: Some datasets will always require manual intervention
+
+### Development Strategy - FOLLOW THIS SEQUENCE:
+
+#### Phase 1: MVP (2-3 weeks)
+**Start Narrow - Focus on Most Common Cases**
+1. **10X Format Only**: matrix.mtx.gz + barcodes.tsv.gz + features.tsv.gz (or genes.tsv)
+2. **Single Sample Datasets**: Avoid multi-sample complexity initially  
+3. **Standard File Names**: Don't handle creative naming conventions yet
+4. **Basic Error Handling**: Fail gracefully with clear messages
+
+**Core MVP Functions to Implement:**
+- `scGeoGet()` - main interface (10X only)
+- `getGEOSuppFiles()` wrapper with 10X file detection
+- `Read10X()` integration with basic validation
+- Simple Seurat object creation
+
+#### Phase 2: Robustness (1-2 months)
+**Expand Based on Real-World Testing**
+1. **HDF5 Support**: Add Read10X_h5() functionality
+2. **Multi-Sample Handling**: Detect and process multiple samples
+3. **Compression Variations**: Handle mixed .gz/.non-gz files
+4. **Better Error Messages**: Specific guidance for common failures
+
+#### Phase 3: Edge Cases (Ongoing)
+**Community-Driven Expansion**
+1. **Custom Format Support**: Based on user requests/failures
+2. **Metadata Enhancement**: Better integration of available metadata
+3. **Performance Optimization**: Memory and speed improvements
+
+### Key Implementation Principles:
+
+1. **Graceful Degradation**: Return partial results rather than complete failure
+   - If 3/4 samples work, return successful ones with warnings about failures
+   - Always provide actionable error messages
+
+2. **Defensive Programming**: 
+   - Validate all inputs and intermediate results
+   - Check file existence and integrity before processing
+   - Handle network failures and corrupted downloads
+
+3. **User Communication**:
+   - Clear progress indicators for downloads
+   - Specific error messages explaining what went wrong
+   - Suggestions for manual fixes when automation fails
+
+4. **Iterative Testing**:
+   - Test with known "difficult" datasets early
+   - Keep a growing test suite of edge cases
+   - Document failure modes and workarounds
+
+### Maintenance Strategy:
+- **Expect regular updates**: New edge cases will emerge constantly
+- **Community contributions**: Design for easy extension by others
+- **Documentation critical**: Future assistants need clear guidance on adding new format support
+
+### Update Instructions for Assistants:
+🚨 **IMPORTANT**: When adding new functionality, always update this plan document with:
+- New edge cases discovered
+- Additional format support added  
+- Changes to function interfaces
+- New dependencies required
+- Updated success rate estimates
+
+This document serves as the single source of truth for project scope and approach.
+
+## Success Metrics
+- Successful processing of >85% of public single cell GEO datasets (realistic target)
+- Robust handling of format variations (10X, HDF5, common text formats)
+- Clear error reporting for edge cases
+- Efficient processing time
+- Memory-optimized for large datasets
