@@ -24,6 +24,8 @@ create_seurat_from_format <- function(format_info,
   
   if (format_type == "10x") {
     return(create_seurat_from_10x(format_info, min_cells, min_features, project_name, verbose))
+  } else if (format_type == "csv") {
+    return(create_seurat_from_csv(format_info, min_cells, min_features, project_name, verbose))
   }
   
   # Future formats will be added here
@@ -174,4 +176,120 @@ copy_and_decompress <- function(source, dest) {
     # Just copy regular file
     file.copy(source, dest)
   }
+}
+
+#' Create Seurat Object from CSV Format
+#'
+#' @param format_info List with CSV format information
+#' @param min_cells Numeric. Minimum cells per gene  
+#' @param min_features Numeric. Minimum features per cell
+#' @param project_name Character. Project name
+#' @param verbose Logical. Print messages
+#' @return Seurat object or list of Seurat objects
+#' @keywords internal
+create_seurat_from_csv <- function(format_info, min_cells, min_features, project_name, verbose) {
+  
+  samples <- format_info$samples
+  
+  if (length(samples) == 1) {
+    # Single sample case
+    if (verbose) cat("Processing single CSV sample...\n")
+    
+    sample_info <- samples[[1]]
+    seurat_obj <- process_csv_sample(sample_info, min_cells, min_features, project_name, verbose)
+    return(seurat_obj)
+    
+  } else {
+    # Multiple samples case
+    if (verbose) cat("Processing", length(samples), "CSV samples...\n")
+    
+    seurat_list <- list()
+    for (i in seq_along(samples)) {
+      sample_name <- names(samples)[i]
+      if (verbose) cat("Processing sample:", sample_name, "\n")
+      
+      sample_project <- paste(project_name, sample_name, sep = "_")
+      seurat_list[[sample_name]] <- process_csv_sample(
+        samples[[i]], min_cells, min_features, sample_project, verbose
+      )
+    }
+    
+    return(seurat_list)
+  }
+}
+
+#' Process Single CSV Sample
+#'
+#' @param sample_info List with counts file path and optional annotation
+#' @param min_cells Numeric. Minimum cells per gene
+#' @param min_features Numeric. Minimum features per cell  
+#' @param project_name Character. Project name
+#' @param verbose Logical. Print messages
+#' @return Seurat object
+#' @keywords internal
+process_csv_sample <- function(sample_info, min_cells, min_features, project_name, verbose) {
+  
+  # Validate required files exist
+  if (!"counts" %in% names(sample_info)) {
+    stop("Missing required counts file for CSV format")
+  }
+  
+  counts_file <- sample_info$counts
+  if (!file.exists(counts_file)) {
+    stop("Counts file not found: ", counts_file)
+  }
+  
+  tryCatch({
+    if (verbose) cat("Loading CSV count matrix...\n")
+    
+    # Read the count matrix
+    if (grepl("\\.gz$", counts_file)) {
+      count_matrix <- utils::read.csv(gzfile(counts_file), row.names = 1, check.names = FALSE)
+    } else {
+      count_matrix <- utils::read.csv(counts_file, row.names = 1, check.names = FALSE)
+    }
+    
+    # Convert to matrix and transpose if needed
+    # CSV format typically has genes as rows, cells as columns (which is what Seurat expects)
+    count_matrix <- as.matrix(count_matrix)
+    
+    if (verbose) {
+      cat("Matrix dimensions:", nrow(count_matrix), "genes x", ncol(count_matrix), "cells\n")
+    }
+    
+    # Convert to sparse matrix for efficiency
+    count_matrix <- Matrix::Matrix(count_matrix, sparse = TRUE)
+    
+    # Create Seurat object
+    if (verbose) cat("Creating Seurat object...\n")
+    seurat_obj <- Seurat::CreateSeuratObject(
+      counts = count_matrix,
+      project = project_name,
+      min.cells = min_cells,
+      min.features = min_features
+    )
+    
+    # Add metadata about source
+    seurat_obj@misc$scGeoGet <- list(
+      source_files = sample_info,
+      creation_date = Sys.time(),
+      package_version = utils::packageVersion("scGeoGet"),
+      original_format = "csv"
+    )
+    
+    # TODO: Add annotation data if available
+    # if ("annotation" %in% names(sample_info)) {
+    #   # Load and add cell metadata
+    # }
+    
+    if (verbose) {
+      cat("Seurat object created successfully!\n")
+      cat("Final dimensions:", nrow(seurat_obj), "genes x", ncol(seurat_obj), "cells\n")
+    }
+    
+    return(seurat_obj)
+    
+  }, error = function(e) {
+    stop("Failed to create Seurat object from CSV: ", e$message)
+  })
 }

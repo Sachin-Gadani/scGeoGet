@@ -23,7 +23,8 @@
 #' 
 #' Current limitations (MVP version):
 #' \itemize{
-#'   \item Only supports 10X format (matrix.mtx, barcodes.tsv, features.tsv/genes.tsv)
+#'   \item Supports 10X format (matrix.mtx, barcodes.tsv, features.tsv/genes.tsv)
+#'   \item Supports CSV format (gene_count.csv files)
 #'   \item Single sample datasets work best
 #'   \item Standard file naming conventions expected
 #' }

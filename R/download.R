@@ -39,22 +39,47 @@ download_geo_data <- function(accession, target_dir, verbose = TRUE) {
       stop("No supplementary files found for accession: ", accession)
     }
     
+    # Extract tar files if present
+    extracted_files <- c()
+    for (file in downloaded_files) {
+      if (grepl("\\.tar$", file, ignore.case = TRUE)) {
+        if (verbose) cat("Extracting tar archive:", basename(file), "\n")
+        
+        # Extract tar file in the same directory
+        utils::untar(file, exdir = dirname(file))
+        
+        # List extracted files
+        tar_contents <- utils::untar(file, list = TRUE)
+        for (content in tar_contents) {
+          extracted_file <- file.path(dirname(file), content)
+          if (file.exists(extracted_file)) {
+            extracted_files <- c(extracted_files, extracted_file)
+          }
+        }
+      } else {
+        extracted_files <- c(extracted_files, file)
+      }
+    }
+    
+    # Use extracted files instead of original downloads
+    final_files <- extracted_files
+    
     # Check file integrity
-    valid_files <- check_file_integrity(downloaded_files)
+    valid_files <- check_file_integrity(final_files)
     if (!all(valid_files)) {
       warning("Some files appear corrupted or empty: ", 
-              paste(downloaded_files[!valid_files], collapse = ", "))
-      downloaded_files <- downloaded_files[valid_files]
+              paste(final_files[!valid_files], collapse = ", "))
+      final_files <- final_files[valid_files]
     }
     
     if (verbose) {
-      cat("Successfully downloaded", length(downloaded_files), "files:\n")
-      for (f in downloaded_files) {
+      cat("Successfully processed", length(final_files), "files:\n")
+      for (f in final_files) {
         cat("  -", basename(f), "\n")
       }
     }
     
-    return(downloaded_files)
+    return(final_files)
     
   }, error = function(e) {
     stop("Failed to download GEO data: ", e$message)
