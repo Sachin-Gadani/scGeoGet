@@ -165,6 +165,16 @@ Researchers upload single cell data in multiple formats:
 - Edge case validation
 - Performance benchmarking
 
+### Validated Test Dataset: GSE111108
+- **Content**: 3 human lung adenocarcinoma cell lines (H2228, NCI-H1975, HCC827)
+- **Size**: ~4,000 cells, 14.5 MB download (small, fast for testing)
+- **Format**: 10X Genomics format (matrix.mtx, barcodes.tsv, features.tsv)
+- **Platform**: Chromium 3' single cell, Illumina NextSeq 500
+- **Processing**: CellRanger with --expect-cells=4000
+- **Validation**: Known cell types (3 distinct cell lines) for result verification
+- **Research Use**: Used as "Gold Standard Dataset" in clustering comparison studies
+- **Test Script**: Available at examples/test_GSE111108.R
+
 ## Future Enhancements
 - Support for additional single cell modalities (ATAC, spatial)
 - Integration with other repositories (ArrayExpress, SRA)

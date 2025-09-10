@@ -116,19 +116,34 @@ When contributing:
 ### Basic Usage
 
 ```r
-# Simple download and processing
-pbmc <- scGeoGet("GSE164378")  # 10X PBMC dataset
-print(pbmc)
+# Test with validated dataset (3 lung cancer cell lines, ~4k cells)
+lung_cancer <- scGeoGet("GSE111108")
+print(lung_cancer)
 ```
 
 ### Custom Parameters
 
 ```r
-# With quality filtering
-seurat_obj <- scGeoGet("GSE123456",
-                      min_cells = 10,      # Gene must be in ≥10 cells
+# With quality filtering and custom project name
+seurat_obj <- scGeoGet("GSE111108",
+                      output_dir = "~/data/lung_cancer",
+                      min_cells = 5,       # Gene must be in ≥5 cells
                       min_features = 500,  # Cell must have ≥500 genes
-                      project_name = "MyExperiment")
+                      project_name = "LungCancer_CellLines")
+```
+
+### Test Dataset: GSE111108
+
+This package includes GSE111108 as a validated test dataset:
+- **Content**: 3 human lung adenocarcinoma cell lines (H2228, NCI-H1975, HCC827)
+- **Size**: ~4,000 cells, 14.5 MB download
+- **Format**: 10X Genomics format (matrix.mtx, barcodes.tsv, features.tsv)
+- **Platform**: Chromium 3' single cell, Illumina NextSeq 500
+- **Advantage**: Known cell types for validation testing
+
+```r
+# Run the included test script
+source(system.file("examples", "test_GSE111108.R", package = "scGeoGet"))
 ```
 
 ### Error Handling
