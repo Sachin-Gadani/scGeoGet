@@ -110,10 +110,30 @@ process_10x_sample <- function(sample_info, min_cells, min_features, project_nam
     barcodes_dest <- file.path(temp_dir, "barcodes.tsv")
     features_dest <- file.path(temp_dir, "features.tsv")
     
-    # Handle compressed files
-    copy_and_decompress(sample_info$matrix, matrix_dest)
-    copy_and_decompress(sample_info$barcodes, barcodes_dest)
-    copy_and_decompress(sample_info$features, features_dest)
+    # Handle compressed files with error checking
+    if (verbose) cat("Copying and decompressing files...\n")
+    
+    copy_and_decompress(sample_info$matrix, matrix_dest, verbose = verbose)
+    copy_and_decompress(sample_info$barcodes, barcodes_dest, verbose = verbose) 
+    copy_and_decompress(sample_info$features, features_dest, verbose = verbose)
+    
+    # Verify files were created successfully
+    if (!file.exists(matrix_dest)) {
+      stop("Failed to create matrix file: ", matrix_dest)
+    }
+    if (!file.exists(barcodes_dest)) {
+      stop("Failed to create barcodes file: ", barcodes_dest)
+    }
+    if (!file.exists(features_dest)) {
+      stop("Failed to create features file: ", features_dest)
+    }
+    
+    if (verbose) {
+      cat("Files copied successfully:\n")
+      cat("  - Matrix:", basename(matrix_dest), "(", file.info(matrix_dest)$size, "bytes )\n")
+      cat("  - Barcodes:", basename(barcodes_dest), "(", file.info(barcodes_dest)$size, "bytes )\n") 
+      cat("  - Features:", basename(features_dest), "(", file.info(features_dest)$size, "bytes )\n")
+    }
     
     if (verbose) cat("Loading count matrix...\n")
     
@@ -164,18 +184,61 @@ process_10x_sample <- function(sample_info, min_cells, min_features, project_nam
 #' @param source Character. Source file path
 #' @param dest Character. Destination file path  
 #' @keywords internal
-copy_and_decompress <- function(source, dest) {
-  if (grepl("\\.gz$", source)) {
-    # Decompress gzipped file
-    con_in <- gzfile(source, "rb")
-    con_out <- file(dest, "wb")
-    writeBin(readBin(con_in, "raw", file.info(source)$size), con_out)
-    close(con_in)
-    close(con_out)
-  } else {
-    # Just copy regular file
-    file.copy(source, dest)
+copy_and_decompress <- function(source, dest, verbose = FALSE) {
+  if (!file.exists(source)) {
+    stop("Source file does not exist: ", source)
   }
+  
+  if (verbose) cat("  Processing:", basename(source), "->", basename(dest), "\n")
+  
+  tryCatch({
+    if (grepl("\\.gz$", source)) {
+      # Decompress gzipped file
+      if (verbose) cat("    Decompressing .gz file...\n")
+      
+      # Use R.utils::gunzip if available, otherwise manual decompression
+      if (requireNamespace("R.utils", quietly = TRUE)) {
+        R.utils::gunzip(source, destname = dest, overwrite = TRUE, remove = FALSE)
+      } else {
+        # Manual decompression
+        con_in <- gzfile(source, "rb")
+        con_out <- file(dest, "wb")
+        
+        # Read in chunks to handle large files
+        chunk_size <- 1024 * 1024  # 1MB chunks
+        repeat {
+          chunk <- readBin(con_in, "raw", chunk_size)
+          if (length(chunk) == 0) break
+          writeBin(chunk, con_out)
+        }
+        
+        close(con_in)
+        close(con_out)
+      }
+    } else {
+      # Just copy regular file
+      if (verbose) cat("    Copying uncompressed file...\n")
+      success <- file.copy(source, dest, overwrite = TRUE)
+      if (!success) {
+        stop("Failed to copy file from ", source, " to ", dest)
+      }
+    }
+    
+    # Verify the destination file was created and has content
+    if (!file.exists(dest)) {
+      stop("Destination file was not created: ", dest)
+    }
+    
+    dest_size <- file.info(dest)$size
+    if (dest_size == 0) {
+      stop("Destination file is empty: ", dest)
+    }
+    
+    if (verbose) cat("    Success:", dest_size, "bytes\n")
+    
+  }, error = function(e) {
+    stop("Error processing ", basename(source), ": ", e$message)
+  })
 }
 
 #' Create Seurat Object from CSV Format
