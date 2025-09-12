@@ -106,16 +106,21 @@ process_10x_sample <- function(sample_info, min_cells, min_features, project_nam
     dir.create(temp_dir)
     
     # Copy files to temporary directory with standard names
-    matrix_dest <- file.path(temp_dir, "matrix.mtx")
-    barcodes_dest <- file.path(temp_dir, "barcodes.tsv")
-    features_dest <- file.path(temp_dir, "features.tsv")
+    # Keep compression if original files were compressed
+    matrix_ext <- if (grepl("\\.gz$", sample_info$matrix)) ".gz" else ""
+    barcodes_ext <- if (grepl("\\.gz$", sample_info$barcodes)) ".gz" else ""
+    features_ext <- if (grepl("\\.gz$", sample_info$features)) ".gz" else ""
     
-    # Handle compressed files with error checking
-    if (verbose) cat("Copying and decompressing files...\n")
+    matrix_dest <- file.path(temp_dir, paste0("matrix.mtx", matrix_ext))
+    barcodes_dest <- file.path(temp_dir, paste0("barcodes.tsv", barcodes_ext))
+    features_dest <- file.path(temp_dir, paste0("features.tsv", features_ext))
     
-    copy_and_decompress(sample_info$matrix, matrix_dest, verbose = verbose)
-    copy_and_decompress(sample_info$barcodes, barcodes_dest, verbose = verbose) 
-    copy_and_decompress(sample_info$features, features_dest, verbose = verbose)
+    # Copy files preserving compression state
+    if (verbose) cat("Copying files (preserving compression)...\n")
+    
+    copy_file_preserve_compression(sample_info$matrix, matrix_dest, verbose = verbose)
+    copy_file_preserve_compression(sample_info$barcodes, barcodes_dest, verbose = verbose) 
+    copy_file_preserve_compression(sample_info$features, features_dest, verbose = verbose)
     
     # Verify files were created successfully
     if (!file.exists(matrix_dest)) {
@@ -179,10 +184,48 @@ process_10x_sample <- function(sample_info, min_cells, min_features, project_nam
   })
 }
 
+#' Copy File Preserving Compression State
+#'
+#' @param source Character. Source file path
+#' @param dest Character. Destination file path
+#' @param verbose Logical. Print progress messages
+#' @keywords internal
+copy_file_preserve_compression <- function(source, dest, verbose = FALSE) {
+  if (!file.exists(source)) {
+    stop("Source file does not exist: ", source)
+  }
+  
+  if (verbose) cat("  Copying:", basename(source), "->", basename(dest), "\n")
+  
+  tryCatch({
+    # Simple file copy - preserve compression state
+    success <- file.copy(source, dest, overwrite = TRUE)
+    if (!success) {
+      stop("Failed to copy file from ", source, " to ", dest)
+    }
+    
+    # Verify the destination file was created and has content
+    if (!file.exists(dest)) {
+      stop("Destination file was not created: ", dest)
+    }
+    
+    dest_size <- file.info(dest)$size
+    if (dest_size == 0) {
+      stop("Destination file is empty: ", dest)
+    }
+    
+    if (verbose) cat("    Success:", dest_size, "bytes\n")
+    
+  }, error = function(e) {
+    stop("Error copying ", basename(source), ": ", e$message)
+  })
+}
+
 #' Copy and Decompress File if Needed
 #'
 #' @param source Character. Source file path
-#' @param dest Character. Destination file path  
+#' @param dest Character. Destination file path
+#' @param verbose Logical. Print progress messages
 #' @keywords internal
 copy_and_decompress <- function(source, dest, verbose = FALSE) {
   if (!file.exists(source)) {
