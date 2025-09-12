@@ -53,11 +53,11 @@ detect_10x_format <- function(file_list, filenames) {
   # 10X format requires: matrix.mtx, barcodes.tsv, features.tsv (or genes.tsv)
   # Files may be compressed (.gz)
   
-  # Pattern matching for core 10X files
-  matrix_pattern <- "matrix\\.mtx(\\.gz)?$"
-  barcodes_pattern <- "barcodes\\.tsv(\\.gz)?$"
-  features_pattern <- "features\\.tsv(\\.gz)?$"
-  genes_pattern <- "genes\\.tsv(\\.gz)?$"  # older CellRanger versions
+  # Pattern matching for core 10X files (flexible for GEO prefixes)
+  matrix_pattern <- ".*matrix\\.mtx(\\.gz)?$"
+  barcodes_pattern <- ".*barcodes\\.tsv(\\.gz)?$"
+  features_pattern <- ".*features\\.tsv(\\.gz)?$"
+  genes_pattern <- ".*genes\\.tsv(\\.gz)?$"  # older CellRanger versions
   
   # Find files matching patterns
   matrix_files <- file_list[grepl(matrix_pattern, filenames, ignore.case = TRUE)]
@@ -68,8 +68,25 @@ detect_10x_format <- function(file_list, filenames) {
   # Use features.tsv if available, otherwise genes.tsv
   feature_files <- if (length(features_files) > 0) features_files else genes_files
   
-  # Check if we have the minimum required files
+  # Check if we have the minimum required files and provide detailed feedback
   if (length(matrix_files) == 0 || length(barcodes_files) == 0 || length(feature_files) == 0) {
+    # Provide detailed feedback about what's missing
+    missing_files <- c()
+    if (length(matrix_files) == 0) missing_files <- c(missing_files, "matrix.mtx")
+    if (length(barcodes_files) == 0) missing_files <- c(missing_files, "barcodes.tsv") 
+    if (length(feature_files) == 0) missing_files <- c(missing_files, "features.tsv or genes.tsv")
+    
+    # Store diagnostic info for better error messages
+    attr(NULL, "diagnostic") <- list(
+      missing_files = missing_files,
+      available_files = basename(file_list),
+      searched_patterns = list(
+        matrix = matrix_pattern,
+        barcodes = barcodes_pattern, 
+        features = features_pattern,
+        genes = genes_pattern
+      )
+    )
     return(NULL)
   }
   

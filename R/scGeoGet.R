@@ -77,7 +77,29 @@ scGeoGet <- function(accession,
     format_info <- detect_data_format(downloaded_files)
     
     if (is.null(format_info)) {
-      stop("Could not detect supported data format. Currently only 10X format is supported.")
+      # Provide detailed diagnostic information
+      cat("\n=== FORMAT DETECTION FAILED ===\n")
+      cat("Could not detect supported data format.\n\n")
+      
+      cat("Downloaded files:\n")
+      for (f in downloaded_files) {
+        cat("  -", basename(f), "\n")
+      }
+      
+      cat("\nCurrently supported formats:\n")
+      cat("  - 10X format: matrix.mtx, barcodes.tsv, features.tsv (or genes.tsv)\n")
+      cat("  - CSV format: gene_count.csv files\n")
+      
+      cat("\nFor 10X format, files can have prefixes (e.g., GSE######_barcodes.tsv.gz)\n")
+      cat("and may be compressed (.gz) or uncompressed.\n\n")
+      
+      # Suggest manual inspection
+      cat("Please check if your files match these patterns:\n")
+      cat("  - *matrix.mtx* (count matrix)\n")
+      cat("  - *barcodes.tsv* (cell barcodes)\n")
+      cat("  - *features.tsv* or *genes.tsv* (gene information)\n\n")
+      
+      stop("Unable to detect supported format. See diagnostic information above.")
     }
     
     # Step 3: Create Seurat object(s)
